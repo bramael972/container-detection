@@ -1,0 +1,7 @@
+.env
+detectron2
+app/models/segmentation
+app/models/keypoints
+app/models/images_poubelle
+.env.local
+__pycache__
