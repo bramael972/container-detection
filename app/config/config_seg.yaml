@@ -1,0 +1,19 @@
+dataset:
+  name: "my_dataset_train"
+  annotations: "app/models/annotations/instances_detect_poubelle.json"
+  images: "app/models/images_poubelle"
+
+model:
+  config_file: "detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+  weights: "app/models/segmentation/model_final.pth"
+  output_dir: "app/models/segmentation"
+  score_thresh_test: 0.5
+  num_classes: 4
+  device: "cpu"
+
+training:
+  ims_per_batch: 2
+  base_lr: 0.00025
+  max_iter: 1000
+  batch_size_per_image: 128
+  num_workers: 2

@@ -3,5 +3,7 @@ detectron2
 app/models/segmentation
 app/models/keypoints
 app/models/images_poubelle
+"app/output_cropped/*
 .env.local
+test972
 __pycache__

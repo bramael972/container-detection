@@ -7,6 +7,7 @@ from detectron2.utils.visualizer import Visualizer, ColorMode
 from detectron2.data import MetadataCatalog, DatasetCatalog
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
+import yaml
 
 class PredictorKeySingleton:
     _instance = None
@@ -14,62 +15,53 @@ class PredictorKeySingleton:
     @staticmethod
     def get_instance():
         if PredictorKeySingleton._instance is None:
+            print("➡️ Creating predictor keys...")
             PredictorKeySingleton._instance = PredictorKeySingleton._create_predictor()
+        print("✅ Returning predictor instance keys:", PredictorKeySingleton._instance)
         return PredictorKeySingleton._instance
 
     @staticmethod
     def _create_predictor():
-        dataset_path = "app"
-        train_json = os.path.join(dataset_path, "models/annotations_kpt/person_keypoints_default.json")
+        # Charger la configuration YAML
+        with open("app/config/config_keypoints.yaml", "r") as f:
+            cfg_dict = yaml.safe_load(f)
 
-        val_json = os.path.join(dataset_path, "models/annotations_kpt/person_keypoints_default.json")
-        train_images = os.path.join(dataset_path, "output_cropped")
-        val_images = os.path.join(dataset_path, "output_cropped")
+        dataset_cfg = cfg_dict["dataset"]
+        model_cfg = cfg_dict["model"]
 
-        # Enregistrer le dataset COCO dans Detectron2
+        base_path = dataset_cfg["base_path"]
+        train_json = os.path.join(base_path, dataset_cfg["train_json"])
+        val_json = os.path.join(base_path, dataset_cfg["val_json"])
+        train_images = os.path.join(base_path, dataset_cfg["train_images"])
+        val_images = os.path.join(base_path, dataset_cfg["val_images"])
+
+        # Enregistrement des datasets
         register_coco_instances("my_dataset_train_keypoint", {}, train_json, train_images)
         register_coco_instances("my_dataset_val_keypoint", {}, val_json, val_images)
 
-        print("✅ Dataset enregistré avec succès !")
+        keypoint_names = dataset_cfg["keypoint_names"]
+        keypoint_flip_map = [tuple(pair) for pair in dataset_cfg["keypoint_flip_map"]]
 
-        register_coco_instances("my_dataset_train_keypoint", {}, train_json, train_images)
-        dataset_dicts = DatasetCatalog.get("my_dataset_train_keypoint")
-        # Définir la liste des noms de keypoints dans l'ordre utilisé dans CVAT
-        keypoint_names = [
-            "x1_t",
-            "x2_t",
-            "x3_t",
-            "x4_t",
-            "x1_b",
-            "x2_b",
-            "x3_b",
-            "x4_b",
-        ]
-
-        # Créer une table de correspondance pour flip horizontal
-        keypoint_flip_map = [(0, 1), (2, 3), (4, 5), (6, 7)]
-
-        # Injecter ces métadonnées dans le MetadataCatalog
-        MetadataCatalog.get("my_dataset_train_keypoint").keypoint_names = keypoint_names
-        MetadataCatalog.get("my_dataset_train_keypoint").keypoint_flip_map = keypoint_flip_map
-
-        MetadataCatalog.get("my_dataset_val_keypoint").keypoint_names = keypoint_names
-        MetadataCatalog.get("my_dataset_val_keypoint").keypoint_flip_map = keypoint_flip_map
+        for d in ["my_dataset_train_keypoint", "my_dataset_val_keypoint"]:
+            meta = MetadataCatalog.get(d)
+            meta.keypoint_names = keypoint_names
+            meta.keypoint_flip_map = keypoint_flip_map
 
         cfg = get_cfg()
-        cfg.OUTPUT_DIR = "app/models/keypoints"
-        cfg.merge_from_file("detectron2/configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml")
+        cfg.OUTPUT_DIR = model_cfg["output_dir"]
+        cfg.merge_from_file(model_cfg["config_file"])
         cfg.DATASETS.TRAIN = ("my_dataset_train_keypoint",)
-        # cfg.DATALOADER.NUM_WORKERS = 2
-        cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
-        cfg.SOLVER.IMS_PER_BATCH = 2
-        cfg.SOLVER.BASE_LR = 0.00025
-        cfg.SOLVER.MAX_ITER = 3000 
-        cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128
-        cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1
+        cfg.MODEL.WEIGHTS = model_cfg["weights_path"]
+        cfg.SOLVER.IMS_PER_BATCH = model_cfg["ims_per_batch"]
+        cfg.SOLVER.BASE_LR = model_cfg["base_lr"]
+        cfg.SOLVER.MAX_ITER = model_cfg["max_iter"]
+        cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = model_cfg["batch_size_per_image"]
+        cfg.MODEL.ROI_HEADS.NUM_CLASSES = model_cfg["num_classes"]
         cfg.MODEL.KEYPOINT_ON = True
-        cfg.MODEL.ROI_KEYPOINT_HEAD.NUM_KEYPOINTS = 8
-        cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
+        cfg.MODEL.ROI_KEYPOINT_HEAD.NUM_KEYPOINTS = model_cfg["num_keypoints"]
+        cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = model_cfg["score_thresh_test"]
+        cfg.MODEL.DEVICE = model_cfg.get("device", "cuda")
+
         return DefaultPredictor(cfg)
 
 def process_model_kpt_extract(image_path, output_dir="app/output_image_kpt_model", score_thresh=1):

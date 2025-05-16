@@ -1,0 +1,33 @@
+dataset:
+  base_path: "app"
+  train_json: "models/annotations_kpt/person_keypoints_default.json"
+  val_json: "models/annotations_kpt/person_keypoints_default.json"
+  train_images: "output_cropped"
+  val_images: "output_cropped"
+  keypoint_names:
+    - x1_t
+    - x2_t
+    - x3_t
+    - x4_t
+    - x1_b
+    - x2_b
+    - x3_b
+    - x4_b
+  keypoint_flip_map:
+    - [0, 1]
+    - [2, 3]
+    - [4, 5]
+    - [6, 7]
+
+model:
+  config_file: "detectron2/configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml"
+  weights_path: "app/models/keypoints/model_final.pth"
+  output_dir: "app/models/keypoints"
+  ims_per_batch: 2
+  base_lr: 0.00025
+  max_iter: 3000
+  batch_size_per_image: 128
+  num_classes: 1
+  num_keypoints: 8
+  score_thresh_test: 0.5
+  device: "cpu"

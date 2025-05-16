@@ -10,7 +10,7 @@ import requests
 from scipy.optimize import minimize
 from sklearn.linear_model import LinearRegression
 from azure.storage.blob import BlobServiceClient
-
+import yaml
 
 class PredictorSingleton:
     _instance = None
@@ -19,31 +19,37 @@ class PredictorSingleton:
     @staticmethod
     def get_instance():
         if PredictorSingleton._instance is None:
+            print("➡️ Creating predictor...")
             PredictorSingleton._instance = PredictorSingleton._create_predictor()
+        print("✅ Returning predictor instance:", PredictorSingleton._instance)
         return PredictorSingleton._instance
 
     @staticmethod
     def _create_predictor():
-        dataset_path = "app/models"
-        train_json = os.path.join(dataset_path, "annotations/instances_detect_poubelle.json")
-        train_images = os.path.join(dataset_path, "images_poubelle")
+        with open("app/config/config_seg.yaml", "r") as f:
+            cfg_data = yaml.safe_load(f)
 
-        register_coco_instances("my_dataset_train", {}, train_json, train_images)
+        dataset_cfg = cfg_data["dataset"]
+        model_cfg = cfg_data["model"]
+        train_cfg = cfg_data["training"]
 
-        metadata = MetadataCatalog.get("my_dataset_train")
-        dataset_dicts = DatasetCatalog.get("my_dataset_train")
+        register_coco_instances(dataset_cfg["name"], {}, dataset_cfg["annotations"], dataset_cfg["images"])
+        metadata = MetadataCatalog.get(dataset_cfg["name"])
+        dataset_dicts = DatasetCatalog.get(dataset_cfg["name"])
+
         cfg = get_cfg()
-        cfg.OUTPUT_DIR = "app/models/segmentation"
-        cfg.merge_from_file("detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
-        cfg.DATASETS.TRAIN = ("my_dataset_train",)
-        cfg.DATALOADER.NUM_WORKERS = 2
-        cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
-        cfg.SOLVER.IMS_PER_BATCH = 2
-        cfg.SOLVER.BASE_LR = 0.00025
-        cfg.SOLVER.MAX_ITER = 1000
-        cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128
-        cfg.MODEL.ROI_HEADS.NUM_CLASSES = 4
-        cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
+        cfg.OUTPUT_DIR = model_cfg["output_dir"]
+        cfg.merge_from_file(model_cfg["config_file"])
+        cfg.DATASETS.TRAIN = (dataset_cfg["name"],)
+        cfg.DATALOADER.NUM_WORKERS = train_cfg["num_workers"]
+        cfg.MODEL.WEIGHTS = model_cfg["weights"]
+        cfg.SOLVER.IMS_PER_BATCH = train_cfg["ims_per_batch"]
+        cfg.SOLVER.BASE_LR = train_cfg["base_lr"]
+        cfg.SOLVER.MAX_ITER = train_cfg["max_iter"]
+        cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = train_cfg["batch_size_per_image"]
+        cfg.MODEL.ROI_HEADS.NUM_CLASSES = model_cfg["num_classes"]
+        cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = model_cfg["score_thresh_test"]
+        cfg.MODEL.DEVICE = model_cfg.get("device", "cuda")
         return DefaultPredictor(cfg)
 
 def download_image(image_url: str):

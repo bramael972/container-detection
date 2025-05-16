@@ -11,6 +11,7 @@ import os
 from os import path
 from azure.storage.blob import BlobServiceClient
 
+
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=".env.local")
 
@@ -51,6 +52,7 @@ def preload_models():
         PredictorKeySingleton.get_instance()
         print("Modèle segmenter et key prêt")
     except Exception as e:
+        print(e)
         print("😅 tu dois charger les modèles proprement")
 
 @app.post("/download-all-models")
